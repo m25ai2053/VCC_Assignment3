@@ -2,26 +2,37 @@ import psutil
 import os
 import time
 
-# Assignment Requirements
-THRESHOLD = 75.0
-CHECK_INTERVAL = 3 
-CLOUD_VM_NAME = "your-instance-name" # Change this to your GCP VM name
-ZONE = "us-central1-a"               # Change this to your VM's zone
+# --- CONFIGURATION ---
+THRESHOLD = 75.0        # Assignment Requirement
+CHECK_INTERVAL = 2      # Seconds between checks
+GCP_VM_NAME = "instance-vivek-gcp"  # Replace with your GCP VM name
+GCP_ZONE = "us-central1-c"           # e.g., us-central1-a
 
-def monitor():
-    print(f"--- Monitoring Local VM (Threshold: {THRESHOLD}%) ---")
-    while True:
-        cpu = psutil.cpu_percent(interval=CHECK_INTERVAL)
-        print(f"[Metric] Local CPU: {cpu}%")
+def get_cpu_usage():
+    # Returns the CPU usage over the last interval
+    return psutil.cpu_percent(interval=CHECK_INTERVAL)
 
-        if cpu > THRESHOLD:
-            print(f"ALERT: CPU hit {cpu}%. Bursting to Google Cloud...")
-            # Command to start your existing GCP VM
-            os.system(f"gcloud compute instances start {CLOUD_VM_NAME} --zone={ZONE}")
-            print(f"SUCCESS: Cloud VM '{CLOUD_VM_NAME}' is now booting up.")
-            break 
-        
-        time.sleep(1)
+def burst_to_cloud():
+    print(f"\n[ALERT] CPU usage has exceeded {THRESHOLD}%!")
+    print(f"[ACTION] Triggering auto-scale: Starting GCP Instance {GCP_VM_NAME}...")
+    
+    # Command to start your existing GCP VM
+    exit_code = os.system(f"gcloud compute instances start {GCP_VM_NAME} --zone={GCP_ZONE}")
+    
+    if exit_code == 0:
+        print("[SUCCESS] Cloud instance is now running. Load balanced.")
+    else:
+        print("[ERROR] Failed to start cloud instance. Check gcloud configurations.")
 
 if __name__ == "__main__":
-    monitor()
+    print(f"Monitoring started. Target Threshold: {THRESHOLD}%")
+    try:
+        while True:
+            usage = get_cpu_usage()
+            print(f"Current Local CPU Usage: {usage}%", end="\r")
+            
+            if usage > THRESHOLD:
+                burst_to_cloud()
+                break # Stop script after triggering
+    except KeyboardInterrupt:
+        print("\nMonitoring stopped by user.")
